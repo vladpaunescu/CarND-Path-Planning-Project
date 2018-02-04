@@ -4,10 +4,12 @@ cmake_minimum_required (VERSION 3.5)
 
 add_definitions(-std=c++11)
 
+set(CMAKE_BUILD_TYPE Debug)
+
 set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
-set(sources src/main.cpp)
+set(sources src/main.cpp src/CarPlan.cpp src/CarPlan.h)
 
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
@@ -21,6 +23,6 @@ link_directories(/usr/local/Cellar/libuv/1.11.0/lib)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
 
 
-add_executable(path_planning ${sources})
+add_executable(path_planning ${sources} src/CarPlan.cpp)
 
 target_link_libraries(path_planning z ssl uv uWS)
