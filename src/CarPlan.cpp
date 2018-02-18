@@ -4,7 +4,7 @@
 
 
 #include <math.h>
-#include "spline.h"
+
 
 #include "CarPlan.h"
 
@@ -75,7 +75,7 @@ static int NextWaypoint(double x, double y, double theta, vector<double> maps_x,
     return closestWaypoint;
 }
 
-// Transform from Cartesian x,y coordinates to Frenet s,d coordinates
+// Transform from Cartesian x,y coordinates to Frenet spl,d coordinates
 static vector<double>
 getFrenet(double x, double y, double theta, vector<double> maps_x, vector<double> maps_y, vector<double> maps_dx,
           vector<double> maps_dy) {
@@ -110,7 +110,7 @@ getFrenet(double x, double y, double theta, vector<double> maps_x, vector<double
         frenet_d *= -1;
     }
 
-    // calculate s value
+    // calculate spl value
     double frenet_s = 0;
     for (int i = 0; i < prev_wp; i++) {
         frenet_s += distance(maps_x[i], maps_y[i], maps_x[i + 1], maps_y[i + 1]);
@@ -122,7 +122,7 @@ getFrenet(double x, double y, double theta, vector<double> maps_x, vector<double
 
 }
 
-// Transform from Frenet s,d coordinates to Cartesian x,y
+// Transform from Frenet spl,d coordinates to Cartesian x,y
 static vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> maps_x, vector<double> maps_y) {
     int prev_wp = -1;
 
@@ -133,7 +133,7 @@ static vector<double> getXY(double s, double d, vector<double> maps_s, vector<do
     int wp2 = (prev_wp + 1) % maps_x.size();
 
     double heading = atan2((maps_y[wp2] - maps_y[prev_wp]), (maps_x[wp2] - maps_x[prev_wp]));
-    // the x,y,s along the segment
+    // the x,y,spl along the segment
     double seg_s = (s - maps_s[prev_wp]);
 
     double seg_x = maps_x[prev_wp] + seg_s * cos(heading);
@@ -157,8 +157,25 @@ CarPlan::CarPlan(const Map &map_, int lane_, int lane_change_wp_)
 
 };
 
-Path CarPlan::getOptimalPath(State car_state, std::vector<double> previous_path_x, std::vector<double> previous_path_y,
-                             double end_path_s, double end_path_d,
+
+bool CarPlan::carInSameLane(int lane, float d) {
+    return d < (2 + 4 * lane + 2) && d > (2 + 4 * lane - 2);
+}
+
+
+double CarPlan::getLaneMiddleD(int lane) {
+    return Safety::LANE_WIDTH / 2.0 + Safety::LANE_WIDTH * lane;
+}
+
+
+
+
+
+Path CarPlan::getOptimalPath(State car_state,
+                             std::vector<double> previous_path_x,
+                             std::vector<double> previous_path_y,
+                             double end_path_s,
+                             double end_path_d,
                              std::vector<std::vector<double>> sensor_fusion) {
 
 
@@ -177,6 +194,9 @@ Path CarPlan::getOptimalPath(State car_state, std::vector<double> previous_path_
                                map.map_waypoints_dx,
                                map.map_waypoints_dy);
     } else {
+
+        // 2 points compute speed
+
         ref_x = previous_path_x[prev_size - 1];
         double ref_x_prev = previous_path_x[prev_size - 2];
         ref_y = previous_path_y[prev_size - 1];
@@ -201,13 +221,13 @@ Path CarPlan::getOptimalPath(State car_state, std::vector<double> previous_path_
     for (int i = 0; i < sensor_fusion.size(); i++) {
         //car is in my lane
         float d = sensor_fusion[i][6];
-        if (d < (2 + 4 * lane + 2) && d > (2 + 4 * lane - 2)) {
+        if (carInSameLane(this->lane, d)) {
             double vx = sensor_fusion[i][3];
             double vy = sensor_fusion[i][4];
             double check_speed = sqrt(vx * vx + vy * vy);
             double check_car_s = sensor_fusion[i][5];
             check_car_s += ((double) prev_size * .02 * check_speed);
-            //check s values greater than mine and s gap
+            //check spl values greater than mine and spl gap
             if ((check_car_s > car_state.s) && ((check_car_s - car_state.s) < 30) &&
                 ((check_car_s - car_state.s) < closestDist_s)) {
 
@@ -288,106 +308,156 @@ Path CarPlan::getOptimalPath(State car_state, std::vector<double> previous_path_
     }
 
 
-    vector<double> ptsx;
-    vector<double> ptsy;
+    Path path;
+//    vector<double> control_ptsx;
+//    vector<double> control_ptsy;
+
 
     if (prev_size < 2) {
         double prev_car_x = car_state.x - cos(car_state.yaw);
         double prev_car_y = car_state.y - sin(car_state.yaw);
 
-        ptsx.push_back(prev_car_x);
-        ptsx.push_back(car_state.x);
+        path.addControlPoint(prev_car_x, prev_car_y);
+        path.addControlPoint(car_state.x, car_state.y);
 
-        ptsy.push_back(prev_car_y);
-        ptsy.push_back(car_state.y);
+//        control_ptsx.push_back(prev_car_x);
+//        control_ptsx.push_back(car_state.x);
+//
+//        control_ptsy.push_back(prev_car_y);
+//        control_ptsy.push_back(car_state.y);
     } else {
-        ptsx.push_back(previous_path_x[prev_size - 2]);
-        ptsx.push_back(previous_path_x[prev_size - 1]);
-
-        ptsy.push_back(previous_path_y[prev_size - 2]);
-        ptsy.push_back(previous_path_y[prev_size - 1]);
+        path.addControlPoint(previous_path_x[prev_size - 2], previous_path_y[prev_size - 2]);
+        path.addControlPoint(previous_path_x[prev_size - 1], previous_path_y[prev_size - 1]);
+//
+//        control_ptsx.push_back(previous_path_x[prev_size - 2]);
+//        control_ptsx.push_back(previous_path_x[prev_size - 1]);
+//
+//        control_ptsy.push_back(previous_path_x[prev_size - 2]);
+//        control_ptsy.push_back(previous_path_y[prev_size - 1]);
 
 
     }
 
-    vector<double> next_wp0 = getXY(car_state.s + 30, (2 + 4 * lane), map.map_waypoints_s, map.map_waypoints_x,
-                                    map.map_waypoints_y);
-    vector<double> next_wp1 = getXY(car_state.s + 60, (2 + 4 * lane), map.map_waypoints_s, map.map_waypoints_x,
-                                    map.map_waypoints_y);
-    vector<double> next_wp2 = getXY(car_state.s + 90, (2 + 4 * lane), map.map_waypoints_s, map.map_waypoints_x,
-                                    map.map_waypoints_y);
+    double laneMiddleD = getLaneMiddleD(lane);
+    for (int i = 0; i < Safety::CONTROL_WP_COUNT; ++i) {
+        vector<double> next_wp = getXY(
+                car_state.s + Safety::S_AHEAD_INCREMENT * (i + 1),
+                laneMiddleD,
+                map.map_waypoints_s,
+                map.map_waypoints_x,
+                map.map_waypoints_y);
 
-    ptsx.push_back(next_wp0[0]);
-    ptsx.push_back(next_wp1[0]);
-    ptsx.push_back(next_wp2[0]);
-
-    ptsy.push_back(next_wp0[1]);
-    ptsy.push_back(next_wp1[1]);
-    ptsy.push_back(next_wp2[1]);
-
-
-    for (int i = 0; i < ptsx.size(); i++) {
-
-        //shift car reference angle to 0 degrees
-        double shift_x = ptsx[i] - ref_x;
-        double shift_y = ptsy[i] - ref_y;
-
-        ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
-        ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
-
+        path.addControlPoint(next_wp);
     }
 
+//    vector<double> next_wp0 = getXY(car_state.spl + 30, (laneMiddleD),
+//                                    map.map_waypoints_s,
+//                                    map.map_waypoints_x,
+//                                    map.map_waypoints_y);
+//    vector<double> next_wp1 = getXY(car_state.spl + 60, (laneMiddleD),
+//                                    map.map_waypoints_s,
+//                                    map.map_waypoints_x,
+//                                    map.map_waypoints_y);
+//    vector<double> next_wp2 = getXY(car_state.spl + 90, (laneMiddleD),
+//                                    map.map_waypoints_s,
+//                                    map.map_waypoints_x,
+//                                    map.map_waypoints_y);
 
-    tk::spline s;
+//
+//    control_ptsx.push_back(next_wp0[0]);
+//    control_ptsx.push_back(next_wp1[0]);
+//    control_ptsx.push_back(next_wp2[0]);
+//
+//    control_ptsy.push_back(next_wp0[1]);
+//    control_ptsy.push_back(next_wp1[1]);
+//    control_ptsy.push_back(next_wp2[1]);
 
 
-    s.set_points(ptsx, ptsy);
+//    for (int i = 0; i < control_ptsx.size(); i++) {
+    //shift car reference angle to 0 degrees
 
+//
+//        double shift_x = control_ptsx[i] - ref_x;
+//        double shift_y = control_ptsy[i] - ref_y;
+//
+//        control_ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
+//        control_ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
+
+//}
+
+    State refState;
+    refState.x = ref_x;
+    refState.y = ref_y;
+    refState.yaw = ref_yaw;
+    refState.speed = car_state.speed;
+
+    path.setCarState(refState);
+    path.computeTrajectory();
+
+//    tk::spl spl;
+//
+//
+//    spl.set_points(control_ptsx, control_ptsy);
+//
+
+
+    // from this point we need new points
     vector<double> next_x_vals;
     vector<double> next_y_vals;
 
-    for (int i = 0; i < previous_path_x.size(); i++) {
-        next_x_vals.push_back(previous_path_x[i]);
-        next_y_vals.push_back(previous_path_y[i]);
-    }
+    Path prev_path;
+    prev_path.discretex = previous_path_x;
+    prev_path.discretey = previous_path_y;
 
-    double target_x = 30.0;
-    double target_y = s(target_x);
-    double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
-
-    double x_add_on = 0;
-
-    for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
-
-        if (ref_vel > car_state.speed) {
-            car_state.speed += .224;
-        } else if (ref_vel < car_state.speed) {
-            car_state.speed -= .224;
-        }
+    path.discretizePath(prev_path, ref_vel);
 
 
-        double N = (target_dist / (.02 * car_state.speed / 2.24));
-        double x_point = x_add_on + (target_x) / N;
-        double y_point = s(x_point);
+//    for (int i = 0; i < previous_path_x.size(); i++) {
+//        next_x_vals.push_back(previous_path_x[i]);
+//        next_y_vals.push_back(previous_path_y[i]);
+//    }
 
-        x_add_on = x_point;
+//    double target_x = 30.0;
+//    double target_y = spl(target_x);
+//    double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
+//
+//    double x_add_on = 0;
+//
+//    for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
+//
+//        if (ref_vel > car_state.speed) {
+//            car_state.speed += .224;
+//        } else if (ref_vel < car_state.speed) {
+//            car_state.speed -= .224;
+//        }
+//
+//
+//        double N = (target_dist / (.02 * car_state.speed / 2.24));
+//        double x_point = x_add_on + (target_x) / N;
+//        double y_point = spl(x_point);
+//
+//        x_add_on = x_point;
+//
+//        double x_ref = x_point;
+//        double y_ref = y_point;
+//
+//        x_point = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
+//        y_point = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
+//
+//        x_point += ref_x;
+//        y_point += ref_y;
+//
+//
+//        next_x_vals.push_back(x_point);
+//        next_y_vals.push_back(y_point);
+//
+//    }
 
-        double x_ref = x_point;
-        double y_ref = y_point;
 
-        x_point = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
-        y_point = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
-
-        x_point += ref_x;
-        y_point += ref_y;
-
-
-        next_x_vals.push_back(x_point);
-        next_y_vals.push_back(y_point);
-
-    }
-
-
-    Path path(next_x_vals, next_y_vals);
     return path;
+
+
+//    Path path(next_x_vals, next_y_vals);
+//    return path;
 }
+

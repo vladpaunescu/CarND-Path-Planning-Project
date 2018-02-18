@@ -130,7 +130,7 @@ string hasData(string s) {
 //        frenet_d *= -1;
 //    }
 //
-//    // calculate s value
+//    // calculate spl value
 //    double frenet_s = 0;
 //    for(int i = 0; i < prev_wp; i++)
 //    {
@@ -144,11 +144,11 @@ string hasData(string s) {
 //}
 //
 //// Transform from Frenet s,d coordinates to Cartesian x,y
-//vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> maps_x, vector<double> maps_y)
+//vector<double> getXY(double spl, double d, vector<double> maps_s, vector<double> maps_x, vector<double> maps_y)
 //{
 //    int prev_wp = -1;
 //
-//    while(s > maps_s[prev_wp+1] && (prev_wp < (int)(maps_s.size()-1) ))
+//    while(spl > maps_s[prev_wp+1] && (prev_wp < (int)(maps_s.size()-1) ))
 //    {
 //        prev_wp++;
 //    }
@@ -156,8 +156,8 @@ string hasData(string s) {
 //    int wp2 = (prev_wp+1)%maps_x.size();
 //
 //    double heading = atan2((maps_y[wp2]-maps_y[prev_wp]),(maps_x[wp2]-maps_x[prev_wp]));
-//    // the x,y,s along the segment
-//    double seg_s = (s-maps_s[prev_wp]);
+//    // the x,y,spl along the segment
+//    double seg_s = (spl-maps_s[prev_wp]);
 //
 //    double seg_x = maps_x[prev_wp]+seg_s*cos(heading);
 //    double seg_y = maps_y[prev_wp]+seg_s*sin(heading);
@@ -225,7 +225,7 @@ int main() {
     h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane,&lane_change_wp,
                 &car_plan](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                                                                                                                                uWS::OpCode opCode) {
-        // "42" at the start of the message means there's a websocket message event.
+        // "42" at the start of the message means there'spl a websocket message event.
         // The 4 signifies a websocket message
         // The 2 signifies a websocket event
         //auto sdata = string(data).substr(0, length);
@@ -255,263 +255,22 @@ int main() {
                     double end_path_d = j[1]["end_path_d"];
                     vector<vector<double>> sensor_fusion = j[1]["sensor_fusion"];
 
-                    State car_state(car_id, car_x, car_y,
-                                    car_s, car_d, car_yaw, car_speed);
+                    State car_state(car_id,
+                                    car_x,
+                                    car_y,
+                                    car_s,
+                                    car_d,
+                                    car_yaw,
+                                    car_speed);
 
                     Path path = car_plan.getOptimalPath(car_state,
                                                         previous_path_x, previous_path_y,
                                                         end_path_s, end_path_d,
                                                         sensor_fusion);
 
-//                    double ref_vel = 49.5; //mph
-//
-//                    int prev_size = previous_path_x.size();
-//
-//                    int next_wp = -1;
-//                    double ref_x = car_x;
-//                    double ref_y = car_y;
-//                    double ref_yaw = deg2rad(car_yaw);
-//
-//                    if(prev_size < 2)
-//                    {
-//                        next_wp = NextWaypoint(ref_x, ref_y, ref_yaw, map_waypoints_x,map_waypoints_y,map_waypoints_dx,map_waypoints_dy);
-//                    }
-//                    else
-//                    {
-//                        ref_x = previous_path_x[prev_size-1];
-//                        double ref_x_prev = previous_path_x[prev_size-2];
-//                        ref_y = previous_path_y[prev_size-1];
-//                        double ref_y_prev = previous_path_y[prev_size-2];
-//                        ref_yaw = atan2(ref_y-ref_y_prev,ref_x-ref_x_prev);
-//                        next_wp = NextWaypoint(ref_x,ref_y,ref_yaw,map_waypoints_x,map_waypoints_y,map_waypoints_dx,map_waypoints_dy);
-//
-//                        car_s = end_path_s;
-//
-//                        car_speed = (sqrt((ref_x-ref_x_prev)*(ref_x-ref_x_prev)+(ref_y-ref_y_prev)*(ref_y-ref_y_prev))/.02)*2.237;
-//                    }
-//
-//                    //find ref_v to use
-//                    double closestDist_s = 100000;
-//                    bool change_lanes = false;
-//                    for(int i = 0; i < sensor_fusion.size(); i++)
-//                    {
-//                        int id = sensor_fusion[i][0];
-//                        std::cout << id << std::endl;
-//                        //car is in my lane
-//                        float d = sensor_fusion[i][6];
-//                        if(d < (2+4*lane+2) && d > (2+4*lane-2) )
-//                        {
-//                            double vx = sensor_fusion[i][3];
-//                            double vy = sensor_fusion[i][4];
-//                            double check_speed = sqrt(vx*vx+vy*vy);
-//                            double check_car_s = sensor_fusion[i][5];
-//                            check_car_s+=((double)prev_size*.02*check_speed);
-//                            //check s values greater than mine and s gap
-//                            if((check_car_s > car_s) && ((check_car_s-car_s) < 30) && ((check_car_s-car_s) < closestDist_s ) )
-//                            {
-//
-//                                closestDist_s = (check_car_s - car_s);
-//
-//                                if((check_car_s-car_s) > 20)
-//                                {
-//
-//                                    //match that cars speed
-//                                    ref_vel = check_speed*2.237;
-//                                    change_lanes = true;
-//                                }
-//                                else
-//                                {
-//                                    //go slightly slower than the cars speed
-//                                    ref_vel = check_speed*2.237-5;
-//                                    change_lanes = true;
-//
-//                                }
-//                            }
-//
-//
-//                        }
-//                    }
-//
-//                    //try to change lanes if too close to car in front
-//                    if(change_lanes && ((next_wp-lane_change_wp)%map_waypoints_x.size() > 2))
-//                    {
-//                        bool changed_lanes = false;
-//                        //first try to change to left lane
-//                        if(lane != 0 && !changed_lanes)
-//                        {
-//                            bool lane_safe = true;
-//                            for(int i = 0; i < sensor_fusion.size(); i++)
-//                            {
-//                                //car is in left lane
-//                                float d = sensor_fusion[i][6];
-//                                if(d < (2+4*(lane-1)+2) && d > (2+4*(lane-1)-2) )
-//                                {
-//                                    double vx = sensor_fusion[i][3];
-//                                    double vy = sensor_fusion[i][4];
-//                                    double check_speed = sqrt(vx*vx+vy*vy);
-//
-//                                    double check_car_s = sensor_fusion[i][5];
-//                                    check_car_s+=((double)prev_size*.02*check_speed);
-//                                    double dist_s = check_car_s-car_s;
-//                                    if(dist_s < 20 && dist_s > -20)
-//                                    {
-//                                        lane_safe = false;
-//                                    }
-//                                }
-//                            }
-//                            if(lane_safe)
-//                            {
-//                                changed_lanes = true;
-//                                lane -= 1;
-//                                lane_change_wp = next_wp;
-//                            }
-//                        }
-//                        //next try to change to right lane
-//                        if(lane != 2 && !changed_lanes)
-//                        {
-//                            bool lane_safe = true;
-//                            for(int i = 0; i < sensor_fusion.size(); i++)
-//                            {
-//                                //car is in right lane
-//                                float d = sensor_fusion[i][6];
-//                                if(d < (2+4*(lane+1)+2) && d > (2+4*(lane+1)-2) )
-//                                {
-//                                    double vx = sensor_fusion[i][3];
-//                                    double vy = sensor_fusion[i][4];
-//                                    double check_speed = sqrt(vx*vx+vy*vy);
-//
-//                                    double check_car_s = sensor_fusion[i][5];
-//                                    check_car_s+=((double)prev_size*.02*check_speed);
-//                                    double dist_s = check_car_s-car_s;
-//                                    if(dist_s < 20 && dist_s > -10)
-//                                    {
-//                                        lane_safe = false;
-//                                    }
-//                                }
-//                            }
-//                            if(lane_safe)
-//                            {
-//                                changed_lanes = true;
-//                                lane += 1;
-//                                lane_change_wp = next_wp;
-//                            }
-//
-//                        }
-//
-//                    }
-//
-//
-//                    vector<double> ptsx;
-//                    vector<double> ptsy;
-//
-//                    if(prev_size < 2)
-//                    {
-//                        double prev_car_x = car_x - cos(car_yaw);
-//                        double prev_car_y = car_y - sin(car_yaw);
-//
-//                        ptsx.push_back(prev_car_x);
-//                        ptsx.push_back(car_x);
-//
-//                        ptsy.push_back(prev_car_y);
-//                        ptsy.push_back(car_y);
-//                    }
-//                    else
-//                    {
-//                        ptsx.push_back(previous_path_x[prev_size-2]);
-//                        ptsx.push_back(previous_path_x[prev_size-1]);
-//
-//                        ptsy.push_back(previous_path_y[prev_size-2]);
-//                        ptsy.push_back(previous_path_y[prev_size-1]);
-//
-//
-//                    }
-//
-//                    vector<double> next_wp0 = getXY(car_s+30,(2+4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
-//                    vector<double> next_wp1 = getXY(car_s+60,(2+4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
-//                    vector<double> next_wp2 = getXY(car_s+90,(2+4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
-//
-//                    ptsx.push_back(next_wp0[0]);
-//                    ptsx.push_back(next_wp1[0]);
-//                    ptsx.push_back(next_wp2[0]);
-//
-//                    ptsy.push_back(next_wp0[1]);
-//                    ptsy.push_back(next_wp1[1]);
-//                    ptsy.push_back(next_wp2[1]);
-//
-//
-//                    for (int i = 0; i < ptsx.size(); i++ )
-//                    {
-//
-//                        //shift car reference angle to 0 degrees
-//                        double shift_x = ptsx[i]-ref_x;
-//                        double shift_y = ptsy[i]-ref_y;
-//
-//                        ptsx[i] = (shift_x *cos(0-ref_yaw)-shift_y*sin(0-ref_yaw));
-//                        ptsy[i] = (shift_x *sin(0-ref_yaw)+shift_y*cos(0-ref_yaw));
-//
-//                    }
-//
-//
-//                    tk::spline s;
-//
-//
-//                    s.set_points(ptsx,ptsy);
-//
-//                    vector<double> next_x_vals;
-//                    vector<double> next_y_vals;
-//
-//                    for(int i = 0; i < previous_path_x.size(); i++)
-//                    {
-//                        next_x_vals.push_back(previous_path_x[i]);
-//                        next_y_vals.push_back(previous_path_y[i]);
-//                    }
-//
-//                    double target_x = 30.0;
-//                    double target_y = s(target_x);
-//                    double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));
-//
-//                    double x_add_on = 0;
-//
-//                    for (int i = 1; i <= 50-previous_path_x.size(); i++) {
-//
-//                        if(ref_vel > car_speed)
-//                        {
-//                            car_speed+=.224;
-//                        }
-//                        else if(ref_vel < car_speed)
-//                        {
-//                            car_speed-=.224;
-//                        }
-//
-//
-//                        double N = (target_dist/(.02*car_speed/2.24));
-//                        double x_point = x_add_on+(target_x)/N;
-//                        double y_point = s(x_point);
-//
-//                        x_add_on = x_point;
-//
-//                        double x_ref = x_point;
-//                        double y_ref = y_point;
-//
-//                        x_point = (x_ref *cos(ref_yaw)-y_ref*sin(ref_yaw));
-//                        y_point = (x_ref *sin(ref_yaw)+y_ref*cos(ref_yaw));
-//
-//                        x_point += ref_x;
-//                        y_point += ref_y;
-//
-//
-//                        next_x_vals.push_back(x_point);
-//                        next_y_vals.push_back(y_point);
-//                    }
-//
-//                    for (int i = 0; i < next_x_vals.size(); ++i) {
-//                        cout << next_x_vals[i] << " " << path.next_x_vals[i] << endl;
-//                        cout << next_y_vals[i] << " " << path.next_y_vals[i] << endl;
-//                     }
-
                     json msgJson;
-                    msgJson["next_x"] = path.next_x_vals;
-                    msgJson["next_y"] = path.next_y_vals;
+                    msgJson["next_x"] = path.discretex;
+                    msgJson["next_y"] = path.discretey;
 
                     auto msg = "42[\"control\","+ msgJson.dump()+"]";
 
@@ -527,7 +286,7 @@ int main() {
         }
     });
 
-    // We don't need this since we're not using HTTP but if it's removed the
+    // We don't need this since we're not using HTTP but if it'spl removed the
     // program
     // doesn't compile :-(
     h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data,
