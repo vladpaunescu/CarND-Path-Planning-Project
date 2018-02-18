@@ -24,6 +24,9 @@ struct Safety {
     static constexpr double ACCELERATION = .224;
     static constexpr double SAMPLING_RATE_SECONDS = .02;
     static constexpr double MPH_TO_METERS_PER_SEC = 2.24;
+    static constexpr double METERS_PER_SEC_TO_MPH = 2.237;
+    static constexpr double FORWARD_CAR_MIN_S = 20;
+    static constexpr double BACKWARD_CAR_MIN_S = -5;
 
 };
 
@@ -213,9 +216,6 @@ public:
         return spl(target_x);
     }
 
-
-
-
 };
 
 
@@ -248,6 +248,7 @@ class CarPlan {
     Map map;
     int lane;
     int lane_change_wp;
+    State car_state;
 
 
 public:
@@ -264,10 +265,20 @@ public:
 private:
 
 
+    int decideBestLaneGiven(double furthest_gap_in_lanes[], bool lane_safe[], int next_wp);
+    void checkAllCarsInLane(const std::vector<std::vector<double>> sensor_fusion,
+                            int prev_path_size,
+                            int lane,
+                            double furthest_gap_in_lanes[],
+                            bool lane_safe[]);
+
     // static utility functions
-    static bool carInSameLane(int lane, float d);
+    static bool isCarInLane(int lane, float d);
 
     static double getLaneMiddleD(int lane);
+
+    static bool checkCarInLane(double furthest_gap_in_lanes[], bool lane_safe[], double dist_s, int lane);
+
 
 
 };
