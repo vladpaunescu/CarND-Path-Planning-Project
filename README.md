@@ -5,12 +5,12 @@ Self-Driving Car Engineer Nanodegree Program
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
 ### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
+In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car'spl localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/spl^2 and jerk that is greater than 10 m/spl^3.
 
 #### The map of the highway is in data/highway_map.txt
-Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
+Each waypoint in the list contains  [x,y,spl,dx,dy] values. x and y are the waypoint'spl map coordinate position, the spl value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
 
-The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
+The highway'spl waypoints loop around so the frenet spl value, distance along the road, goes from 0 to 6945.554.
 
 ## Basic Build Instructions
 
@@ -21,120 +21,128 @@ The highway's waypoints loop around so the frenet s value, distance along the ro
 
 Here is the data provided from the Simulator to the C++ Program
 
-#### Main car's localization Data (No Noise)
+## Implementation Details. Code walkthrough
 
-["x"] The car's x position in map coordinates
+I structured the code in many classes given the classs responsabilites.
 
-["y"] The car's y position in map coordinates
+You can find the project logic in `CarPlan.h / CarPlan.cpp`.
 
-["s"] The car's s position in frenet coordinates
+In `main.cpp`, I separate stuff that cahnges from stuff that stays the same.
+The masp stays the same, so I created a structure for it called `Map` which contains 
+map waypoints, both in Frenet and Cartesian coordinates.
 
-["d"] The car's d position in frenet coordinates
+I instantiate the map at line 208-214 in `main.cpp`.
+After initializing the planner ` CarPlan car_plan(map, lane, lane_change_wp)` (line 221),
+I'm waiting for the event `telemetry`.
 
-["yaw"] The car's yaw angle in the map
+Main class is `CarPlan`. It has one entry point:
 
-["speed"] The car's speed in MPH
+```
+Path getOptimalPath(State car_state,
+                        std::vector<double> previous_path_x,
+                        std::vector<double> previous_path_y,
+                        double end_path_s, double end_path_d,
+                        std::vector<std::vector<double>> sensor_fusion);
 
-#### Previous path data given to the Planner
+```
 
-//Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
+Inside this method there is the logic for path computation (top level abstraction).
 
-["previous_path_x"] The previous list of x points previously given to the simulator
+After receiving new `telemetry event`, I call the method `Path getOptimalPath` from `CarPlan` to get optimal path (line 266 in `main.cpp`).
+Inside the method, I first decide my car state given telemetry and waypoints.
+After that, in lines 311 - 344, I check if current lane is blocked by slower cars ahead.
+If slower cars ahead, I adjust the velocity if car ahead on lane (match velocity or slow down).
 
-["previous_path_y"] The previous list of y points previously given to the simulator
+### Lane changing
+If lane is blocked, we try changing lanes. Code for changing lanes is located at lines 347 - 375. Inside this block,
+I checked lef/right lanes and choose the safest lane and the lane with the furthers object ahead if it's safe.
+Bacause logic involves lots of ifs and comparisons with Math, I've abstracted out the check in helper meaningful methods.
+All helper methods are private. Some are even static (stateless).
 
-#### Previous path's end s and d values 
+```
+// all helper methods are private.
 
-["end_path_s"] The previous list's last point's frenet s value
+private:
+    int decideBestLaneGiven(double furthest_gap_in_lanes[], bool lane_safe[], int next_wp);
+    void checkAllCarsInLane(const std::vector<std::vector<double>> sensor_fusion,
+                            int prev_path_size,
+                            int lane,
+                            double furthest_gap_in_lanes[],
+                            bool lane_safe[]);
 
-["end_path_d"] The previous list's last point's frenet d value
-
-#### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
-
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
-
-## Details
-
-1. The car uses a perfect controller and will visit every (x,y) point it recieves in the list every .02 seconds. The units for the (x,y) points are in meters and the spacing of the points determines the speed of the car. The vector going from a point to the next point in the list dictates the angle of the car. Acceleration both in the tangential and normal directions is measured along with the jerk, the rate of change of total Acceleration. The (x,y) point paths that the planner recieves should not have a total acceleration that goes over 10 m/s^2, also the jerk should not go over 50 m/s^3. (NOTE: As this is BETA, these requirements might change. Also currently jerk is over a .02 second interval, it would probably be better to average total acceleration over 1 second and measure jerk from that.
-
-2. There will be some latency between the simulator running and the path planner returning a path, with optimized code usually its not very long maybe just 1-3 time steps. During this delay the simulator will continue using points that it was last given, because of this its a good idea to store the last points you have used so you can have a smooth transition. previous_path_x, and previous_path_y can be helpful for this transition since they show the last points given to the simulator controller with the processed points already removed. You would either return a path that extends this previous path or make sure to create a new path that has a smooth transition with this last path.
-
-## Tips
-
-A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
-
----
-
-## Dependencies
-
-* cmake >= 3.5
- * All OSes: [click here for installation instructions](https://cmake.org/install/)
-* make >= 4.1
-  * Linux: make is installed by default on most Linux distros
-  * Mac: [install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
-  * Windows: [Click here for installation instructions](http://gnuwin32.sourceforge.net/packages/make.htm)
-* gcc/g++ >= 5.4
-  * Linux: gcc / g++ is installed by default on most Linux distros
-  * Mac: same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
-  * Windows: recommend using [MinGW](http://www.mingw.org/)
-* [uWebSockets](https://github.com/uWebSockets/uWebSockets)
-  * Run either `install-mac.sh` or `install-ubuntu.sh`.
-  * If you install from source, checkout to commit `e94b6e1`, i.e.
-    ```
-    git clone https://github.com/uWebSockets/uWebSockets 
-    cd uWebSockets
-    git checkout e94b6e1
-    ```
-
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
+    // static utility functions
+    static bool isCarInLane(int lane, float d);
+    static double getLaneMiddleD(int lane);
+    static bool checkCarInLane(double furthest_gap_in_lanes[], bool lane_safe[], double dist_s, int lane);
 
 
-## Call for IDE Profiles Pull Requests
+```
 
-Help your fellow students!
+These methods are used in lane choosing logic. Free lane with furthest object ahead (when tie) is chosen.
 
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
+### Path Planning
 
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
+After choosing the lane and target speed, I compute the path.
+For this I created another `struct` called `Path`. You can inspect it at lines
+87 - 214 in `CarPlan.h`.
 
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
+First of all in `CarPlan.cpp`, path planning logic is located at line 380 - 422.
+To ensure smooth trajectory I use a spline to compute intermediate waypoints for car trajectory.
+To ensure trajectory continuity, I add 2 control points for spline that consist of previous path returned by telemetry, or if I only 
+have car state, car position and projected car position int the past given the yaw.
 
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
+Then, I add 3 equally spaced control points ahead (30, 60, 90 m in Frenet Coordinates (lane coordinates)), given the chosen lane at previous step (code lines 395 - 405 in CarPlan.cpp).
+After that, I set the car state in the Path class. I transform all control points to car relative coordinates in order to make compuation easier.
+Given the control points I compute the trajectory at line 414 in `CarPaln.cpp`.
+I get the discrete points from spline curve at line 420 in `CarPlan.cpp`. Before that I reuse previous path waypoints.
+Inside `struct Path`, method `void discretizePath(const Path &prevPath, double ref_vel)` (line 174 -202 in `CarPlan.h`), I do:
 
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
+For each remaining points use current projected car speed and sampling rate into the future to eaulay space out waypoints.
+Using the X point into the futuere I compute the X into the futuer given futuer speed (line 191).
+Spline is used for getting corresponding Y coordinate given X coordinate. After that I move back the point from relative car coordinates to absolute world coordinates using inverse transform.
+The discretized points are pushed back to 2 vectors, and path is this way computed. 
 
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
+I favor the current lane if it's safe of course and we are close to reference velocity.
 
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+Car State is stored into `struct Sate` (lines 40 - 83 in `CarPlan.h`).
+I also declared some Safety Constants (line 15 - 32 in `CarPlan.h`):
+
+```
+
+/**
+ * safety constants.
+ */
+struct Safety {
+    static constexpr double TARGET_SPEED_MPH = 49.5;
+    static const int TARGET_LANE = 1;
+    static const int LANE_WIDTH = 4;
+    static constexpr double S_AHEAD_INCREMENT = 30.0;
+    static constexpr double X_AHEAD_TARGET_METERS = 30.0;
+    static const int CONTROL_WP_COUNT = 3;
+    static const int PATH_WP_COUNT = 50;
+
+    static constexpr double ACCELERATION = .224;
+    static constexpr double SAMPLING_RATE_SECONDS = .02;
+    static constexpr double MPH_TO_METERS_PER_SEC = 2.24;
+    static constexpr double METERS_PER_SEC_TO_MPH = 2.237;
+    static constexpr double ATTENTITON_CAR_MIN_S = 30;
+    static constexpr double FORWARD_CAR_MIN_S = 20;
+    static constexpr double BACKWARD_CAR_MIN_S = -5;
+
+};
+
+
+```
+
+
+
+
+ 
+
+
+
+
+
+
+ 
 
