@@ -93,17 +93,17 @@ For this I created another `struct` called `Path`. You can inspect it at lines
 First of all in `CarPlan.cpp`, path planning logic is located at line 379 - 422.
 To ensure smooth trajectory I use a spline to compute intermediate waypoints for car trajectory.
 To ensure trajectory continuity, I add 2 control points for spline that consist of previous path returned by telemetry, or if I only 
-have car state, car position and projected car position int the past given the yaw.
+have car state, car position and projected car position into the past given the yaw.
 
-Then, I add 3 equally spaced control points ahead (30, 60, 90 m ahead in Frenet Coordinates - lane coordinates), given the chosen lane at previous step (code lines 394 - 404 in CarPlan.cpp).
-After that, I set the car state in the Path class. I transform all control points to car relative coordinates in order to make computation easier.
+Then, I add 3 equally spaced control points ahead (30, 60, 90 m ahead in Frenet Coordinates - lane coordinates), given the chosen lane at previous step (code lines 394 - 404 in `CarPlan.cpp`).
+After that, I set the car state in the `Path` struct. I transform all control points to car relative coordinates in order to make computation easier.
 Given the control points I compute the trajectory at line 413 in `CarPaln.cpp`.
 I get the discrete points from spline curve at line 419 in `CarPlan.cpp`. Before that I reuse previous path waypoints.
 Inside `struct Path`, method `void discretizePath(const Path &prevPath, double ref_vel)` (line 174 -202 in `CarPlan.h`), I do:
 
-For each remaining points use current projected car speed and sampling rate into the future to eaulay space out waypoints.
-Using the X point into the future I compute the X into the futuer given futuer speed (line 191).
-Spline is used for getting corresponding Y coordinate given X coordinate. After that I move back the point from relative car coordinates to absolute world coordinates using inverse transform.
+For each remaining points use current projected car speed and sampling rate into the future to ensure equally space out waypoints.
+Using the initial X point into the future, I compute the X future into the future given future car speed (line 191).
+Spline is used for getting corresponding Y coordinate, given X coordinate. After that I move back the point from relative car coordinates to absolute world coordinates using inverse transform.
 The discretized points are pushed back to 2 vectors, and path is this way computed. 
 
 I favor the current lane if it's safe of course and we are close to reference velocity.
