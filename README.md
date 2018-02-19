@@ -4,6 +4,10 @@ Self-Driving Car Engineer Nanodegree Program
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
+Here is a completed fully autonomous lap without incidents:
+
+[![project video](imgs/screenshot.png)](https://youtu.be/zpoMm_MSlTg)
+
 ### Goals
 In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car'spl localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/spl^2 and jerk that is greater than 10 m/spl^3.
 
@@ -21,7 +25,7 @@ The highway'spl waypoints loop around so the frenet spl value, distance along th
 
 Here is the data provided from the Simulator to the C++ Program
 
-## Implementation Details. Code walkthrough
+## Implementation Details. Code Walkthrough
 
 I structured the code in many classes given the classs responsabilites.
 
@@ -54,7 +58,7 @@ After that, in lines 311 - 344, I check if current lane is blocked by slower car
 If slower cars ahead, I adjust the velocity if car ahead on lane (match velocity or slow down).
 
 ### Lane changing
-If lane is blocked, we try changing lanes. Code for changing lanes is located at lines 347 - 375. Inside this block,
+If lane is blocked, we try changing lanes. Code for changing lanes is located at lines 344 - 375. Inside this block,
 I checked lef/right lanes and choose the safest lane and the lane with the furthers object ahead if it's safe.
 Bacause logic involves lots of ifs and comparisons with Math, I've abstracted out the check in helper meaningful methods.
 All helper methods are private. Some are even static (stateless).
@@ -78,27 +82,27 @@ private:
 
 ```
 
-These methods are used in lane choosing logic. Free lane with furthest object ahead (when tie) is chosen.
+These methods are used in lane choosing logic. Free lane with furthest object ahead (when we have a tie) is chosen.
 
-### Path Planning
+### Path Planning and Smooth Trajectory Generation
 
 After choosing the lane and target speed, I compute the path.
 For this I created another `struct` called `Path`. You can inspect it at lines
 87 - 214 in `CarPlan.h`.
 
-First of all in `CarPlan.cpp`, path planning logic is located at line 380 - 422.
+First of all in `CarPlan.cpp`, path planning logic is located at line 379 - 422.
 To ensure smooth trajectory I use a spline to compute intermediate waypoints for car trajectory.
 To ensure trajectory continuity, I add 2 control points for spline that consist of previous path returned by telemetry, or if I only 
 have car state, car position and projected car position int the past given the yaw.
 
-Then, I add 3 equally spaced control points ahead (30, 60, 90 m in Frenet Coordinates (lane coordinates)), given the chosen lane at previous step (code lines 395 - 405 in CarPlan.cpp).
-After that, I set the car state in the Path class. I transform all control points to car relative coordinates in order to make compuation easier.
-Given the control points I compute the trajectory at line 414 in `CarPaln.cpp`.
-I get the discrete points from spline curve at line 420 in `CarPlan.cpp`. Before that I reuse previous path waypoints.
+Then, I add 3 equally spaced control points ahead (30, 60, 90 m ahead in Frenet Coordinates - lane coordinates), given the chosen lane at previous step (code lines 394 - 404 in CarPlan.cpp).
+After that, I set the car state in the Path class. I transform all control points to car relative coordinates in order to make computation easier.
+Given the control points I compute the trajectory at line 413 in `CarPaln.cpp`.
+I get the discrete points from spline curve at line 419 in `CarPlan.cpp`. Before that I reuse previous path waypoints.
 Inside `struct Path`, method `void discretizePath(const Path &prevPath, double ref_vel)` (line 174 -202 in `CarPlan.h`), I do:
 
 For each remaining points use current projected car speed and sampling rate into the future to eaulay space out waypoints.
-Using the X point into the futuere I compute the X into the futuer given futuer speed (line 191).
+Using the X point into the future I compute the X into the futuer given futuer speed (line 191).
 Spline is used for getting corresponding Y coordinate given X coordinate. After that I move back the point from relative car coordinates to absolute world coordinates using inverse transform.
 The discretized points are pushed back to 2 vectors, and path is this way computed. 
 

@@ -217,9 +217,7 @@ int CarPlan::decideBestLaneGiven(double furthest_gap_in_lanes[], bool lane_safe[
             } else {
                 best_lane = lane + 1;
             }
-        }
-
-        if (lane_safe[lane - 1]) {
+        } else if (lane_safe[lane - 1]) {
             lane_change_wp = next_wp;
             best_lane = lane - 1;
         }
@@ -277,6 +275,7 @@ Path CarPlan::getOptimalPath(State car_state_,
     double ref_y = car_state.y;
     double ref_yaw = deg2rad(car_state.yaw);
 
+    // compute next waypint
     if (prev_size < 2) {
         next_wp = NextWaypoint(ref_x, ref_y, ref_yaw, map.map_waypoints_x,
                                map.map_waypoints_y,
@@ -304,7 +303,9 @@ Path CarPlan::getOptimalPath(State car_state_,
                  Safety::SAMPLING_RATE_SECONDS) * Safety::METERS_PER_SEC_TO_MPH;
     }
 
-    //find ref_v to use
+    /*
+     * Check if lane is blocked by slower car ahead.
+     */
     double closestDist_s = 100000;
     bool change_lanes = false;
     for (int i = 0; i < sensor_fusion.size(); i++) {
@@ -317,19 +318,19 @@ Path CarPlan::getOptimalPath(State car_state_,
             double check_car_s = sensor_fusion[i][5];
             check_car_s += ((double) prev_size * .02 * check_speed);
             //check s values greater than mine and s gap
-            if ((check_car_s > car_state.s) && ((check_car_s - car_state.s) < 30) &&
+            if ((check_car_s > car_state.s) && ((check_car_s - car_state.s) < Safety::ATTENTITON_CAR_MIN_S) &&
                 ((check_car_s - car_state.s) < closestDist_s)) {
 
                 closestDist_s = (check_car_s - car_state.s);
 
-                if ((check_car_s - car_state.s) > 20) {
+                if ((check_car_s - car_state.s) > Safety::FORWARD_CAR_MIN_S) {
 
                     //match that cars speed
-                    ref_vel = check_speed * 2.237;
+                    ref_vel = check_speed * Safety::METERS_PER_SEC_TO_MPH;
                     change_lanes = true;
                 } else {
                     //go slightly slower than the cars speed
-                    ref_vel = check_speed * 2.237 - 5;
+                    ref_vel = check_speed * Safety::METERS_PER_SEC_TO_MPH - 5;
                     change_lanes = true;
 
                 }
@@ -355,58 +356,20 @@ Path CarPlan::getOptimalPath(State car_state_,
                                furthest_gap_in_lanes,
                                lane_safe);
 
-//            for (int i = 0; i < sensor_fusion.size(); i++) {
-//                //car is in left lane
-//                float d = sensor_fusion[i][6];
-//                if (isCarInLane(lane - 1, d)) {
-//                    double vx = sensor_fusion[i][3];
-//                    double vy = sensor_fusion[i][4];
-//                    double check_speed = sqrt(vx * vx + vy * vy);
-//
-//                    double check_car_s = sensor_fusion[i][5];
-//                    check_car_s += ((double) prev_size * Safety::SAMPLING_RATE_SECONDS * check_speed);
-//                    double dist_s = check_car_s - car_state.s;
-//
-//                    if (!checkCarInLane(furthest_gap_in_lanes, lane_safe, dist_s, lane - 1)) {
-//                        break;
-//                    }
-//
-//                }
-//            }
-
         }
+
         //next try to change to right lane
         if (lane != 2 && !changed_lanes) {
-
             checkAllCarsInLane(sensor_fusion,
                                prev_size,
                                lane + 1,
                                furthest_gap_in_lanes,
                                lane_safe);
 
-//            bool lane_safe = true;
-//            for (int i = 0; i < sensor_fusion.size(); i++) {
-//                //car is in right lane
-//                float d = sensor_fusion[i][6];
-//                if (isCarInLane(lane + 1, d)) {
-//                    double vx = sensor_fusion[i][3];
-//                    double vy = sensor_fusion[i][4];
-//                    double check_speed = sqrt(vx * vx + vy * vy);
-//
-//                    double check_car_s = sensor_fusion[i][5];
-//                    check_car_s += ((double) prev_size * Safety::SAMPLING_RATE_SECONDS * check_speed);
-//                    double dist_s = check_car_s - car_state.s;
-//
-//                    if (!checkCarInLane(furthest_gap_in_lanes, lane_safe, dist_s, lane + 1)) {
-//                        break;
-//                    }
-//
-//                }
-//            }
-
         }
 
         lane = decideBestLaneGiven(furthest_gap_in_lanes, lane_safe, next_wp);
+        std::cout << "Chosen lane " << lane << std::endl;
     }
 
 

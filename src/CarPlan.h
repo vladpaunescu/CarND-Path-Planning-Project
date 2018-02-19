@@ -25,14 +25,10 @@ struct Safety {
     static constexpr double SAMPLING_RATE_SECONDS = .02;
     static constexpr double MPH_TO_METERS_PER_SEC = 2.24;
     static constexpr double METERS_PER_SEC_TO_MPH = 2.237;
+    static constexpr double ATTENTITON_CAR_MIN_S = 30;
     static constexpr double FORWARD_CAR_MIN_S = 20;
-    static constexpr double BACKWARD_CAR_MIN_S = -5;
+    static constexpr double BACKWARD_CAR_MIN_S = -10;
 
-};
-
-enum {
-    KEEP_LANE = 0,
-    LANE_CHANGE
 };
 
 
@@ -82,7 +78,7 @@ struct State {
 };
 
 
-/* should respect command query separation pattern */
+/* should respect command/query separation pattern */
 struct Path {
 
     std::vector<double> control_ptsx;
@@ -163,11 +159,6 @@ public:
     void connectPrevPath(const Path &prevPath) {
         discretex = prevPath.discretex;
         discretey = prevPath.discretey;
-//
-//        for (int i = 0; i < prevPath.discretex.size(); i++) {
-//            discretex.push_back(discretex[i]);
-//            discretey.push_back(discretey[i]);
-//        }
     }
 
     void setCarState(const State &car_state) {
@@ -183,7 +174,6 @@ public:
         double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
 
         double x_add_on = 0;
-//        double ref_vel = Safety::TARGET_SPEED_MPH;
 
         // add only a difference from previous path
         int remainingWpCount = Safety::PATH_WP_COUNT - discretex.size();
@@ -256,12 +246,14 @@ public:
     CarPlan(const Map &map, int lane, int lane_change_wp_);
 
 
+    // single public entry point.
     Path getOptimalPath(State car_state,
                         std::vector<double> previous_path_x,
                         std::vector<double> previous_path_y,
                         double end_path_s, double end_path_d,
                         std::vector<std::vector<double>> sensor_fusion);
 
+    // all helper methods are private.
 private:
 
 
@@ -274,12 +266,8 @@ private:
 
     // static utility functions
     static bool isCarInLane(int lane, float d);
-
     static double getLaneMiddleD(int lane);
-
     static bool checkCarInLane(double furthest_gap_in_lanes[], bool lane_safe[], double dist_s, int lane);
-
-
 
 };
 
